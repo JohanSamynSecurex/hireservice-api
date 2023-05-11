@@ -1,0 +1,891 @@
+---
+openapi: 3.0.2
+info:
+  title: Hireservice
+  version: 0.1.0
+  description: ""
+  contact:
+    name: Securex
+paths:
+  /firms/{firmNumber}/hires:
+    summary: New hires
+    description: |
+      Create a new hire
+    post:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Hire'
+        required: true
+      tags:
+      - contract
+      - hire
+      responses:
+        "202":
+          description: The request has been accepted and will be processed further.
+        "400":
+          $ref: '#/components/responses/Errors'
+        "401":
+          description: No or invalid authentication details are provided.
+        "403":
+          description: Authentication succeeded but authenticated user doesn't have
+            access to the resource
+        "404":
+          $ref: '#/components/responses/Errors'
+        "422":
+          $ref: '#/components/responses/Errors'
+        "500":
+          $ref: '#/components/responses/Errors'
+        "503":
+          $ref: '#/components/responses/Errors'
+      operationId: CreateNewHire
+      summary: Create new hire
+      description: 'Create a new hire. '
+    parameters:
+    - name: X-B3-TraceId
+      description: Can be used to pass a client trace id
+      schema:
+        type: string
+      in: header
+    - name: X-B3-SpanId
+      description: Can be used to pass a client span id for tracing purposes
+      schema:
+        type: string
+      in: header
+    - name: Accept-Language
+      description: "language for language-dependent fields , default value is nl"
+      schema:
+        enum:
+        - nl
+        - fr
+        - de
+        type: string
+      in: header
+    - name: firmNumber
+      description: Identifier of the firm
+      schema:
+        type: string
+      in: path
+      required: true
+components:
+  schemas:
+    WorkSchedulePrestationBlock:
+      description: ""
+      required:
+      - theoreticalCode
+      - numberOfHours
+      - prestationNumber
+      type: object
+      properties:
+        theoreticalCode:
+          description: ""
+          type: string
+        numberOfHours:
+          description: ""
+          type: number
+        actualCode:
+          description: ""
+          type: string
+        prestationNumber:
+          description: Order of the block in the day
+          type: integer
+      example:
+        theoreticalCode: some text
+        numberOfHours: 90.16
+        actualCode: some text
+        prestationNumber: 52
+    CostCenter:
+      description: ""
+      required:
+      - costCenterCode
+      type: object
+      properties:
+        percentage:
+          description: A contract can be divided between multiple costcenters. This
+            percentage represents the amount of time to be worked at this cost center
+            relative to the total time spent in all cost centers
+          type: number
+        costCenterCode:
+          description: "Cost center code references a cost center definition that\
+            \ can be retrieved through firms/{firmnumber}/cost-centers"
+          type: string
+    Error:
+      description: Error returned by the api
+      required:
+      - error
+      - message
+      type: object
+      properties:
+        message:
+          description: A brief human-readable message
+          type: string
+        error:
+          description: A unique identifier for the error
+          type: string
+    BankAccount:
+      description: Bank account information
+      required:
+      - iban
+      type: object
+      properties:
+        bic:
+          description: "Bank Identifier Code, only required if IBAN is not a Belgian\
+            \ number."
+          type: string
+        iban:
+          description: "International Bank Account Number. Warning, if \"null\" is\
+            \ passed for this value any existing IBAN will be overwritten."
+          type: string
+        beneficiary:
+          description: Name of the beneficiary of the account
+          type: string
+    MeansOfTransport:
+      description: Means of transport to be listed in the commute for an employee
+      required:
+      - typeOfTransport
+      - meansOfTransportNumber
+      type: object
+      properties:
+        typeOfTransport:
+          description: |-
+            Type of transportation such as bicycle, train, bus/tram/subway or a combination of public transport depending on the travel pass.
+
+            Type None can only be used to signal that from a certain point in time, there will be no more commute details to take in account during payroll calculation
+          enum:
+          - OnFoot
+          - Bicycle
+          - Train
+          - BusTramSubway
+          - PublicTransportCombination
+          - PrivateCar
+          - CompanyCar
+          - None
+          - ManagedBySecurex
+          type: string
+        singleDistance:
+          description: "Distance of a single trip in kilometers, one decimal. Required,\
+            \ except for company cars."
+          type: number
+        paymentEvaluationPeriod:
+          description: "Period evaluated to determine allowance (i.e. one trip must\
+            \ be made during this defined period to get the allowance, default value\
+            \ for on foot, bicycle and car is an evaluation per day, default for public\
+            \ transport is per month). Required, except for company cars."
+          enum:
+          - Day
+          - Week
+          - Month
+          - Quarter
+          - Year
+          type: string
+        companyCarCommute:
+          $ref: '#/components/schemas/CompanyCarCommute'
+          description: Additional details if the means of transport is a company car
+        meansOfTransportNumber:
+          description: Reference to the Means of transport in the Securex database
+          type: number
+    WorkingConditions:
+      description: Working conditions information.
+      required:
+      - jointCommitteeCode
+      - workingHoursPerWeek
+      - riskClassMandatory
+      type: object
+      properties:
+        workingHoursPerWeek:
+          description: Average number of working hours per week
+          type: number
+        jointCommitteeCode:
+          description: Joint Committee code
+          type: string
+        riskClassMandatory:
+          description: 'boolean which indicates whether a valid entry for professonialDetails/riskClassCode
+            is required or not for this contract '
+          type: boolean
+    WageComponent:
+      description: pay scale wage component
+      required:
+      - wageCode
+      - unitType
+      - payscaleCode
+      type: object
+      properties:
+        wageCode:
+          description: wageCode
+          type: string
+        unitType:
+          description: "unit type of the wageCode : hourly, daily, monthly,unit ..."
+          enum:
+          - hourly
+          - monthly
+          - unit
+          - daily
+          type: string
+        amount:
+          description: "amount assigned to the wageCode; in case unit is hourly or\
+            \ unit, amount should have 4 decimals, in case of monthly 2 decimals"
+          type: number
+        payscaleCode:
+          description: |-
+            Indication of whether payscales should be used or not. If payscales are used, the salary will be calculated according to the payscale: an amount is not required.
+
+            ! Wage component A04 does not make use of "checkPayscale" as the wages of extras are always checked, instead send:
+            - noPayscale if a specific amount is passed
+            - usePayscale if no specific amount is passed
+          enum:
+          - usePayscale
+          - checkPayscale
+          - noPayscale
+          - useFlexiPayScale
+          type: string
+        wageCodeDescription:
+          description: description of the wageCode
+          type: string
+      example:
+        wageCode: A01
+        unitType: monthly
+        amount: 1099.36
+        payscaleCode: noPayscale
+        wageCodeDescription: Basisloon
+    CompanyCarCommute:
+      description: Additional details must be provided if the means of transport is
+        a company car
+      required:
+      - numberPlate
+      - companyCarUsage
+      - employeeContributionAmount
+      - paymentType
+      type: object
+      properties:
+        numberPlate:
+          description: |-
+            Number plate identifying the company car, consisting of max. 10 characters. A list of all company cars of the firm can be retrieved by /bel/firms/{firmNumber}/company-cars.
+
+            A company car must be known to Securex before it can be used in the commute of an employee. Company cars can be added by /bel/firms/{firmNumber}/company-cars/{numberPlate}.
+          type: string
+        paymentType:
+          description: "Type of payment by the employee for the company car (none,\
+            \ per kilometer, per month, or percentage of tax on benefit in kind),\
+            \ defines how the payment by the employee should be interpreted. If the\
+            \ payment type is anything other than per kilometer, single distance will\
+            \ be set by Securex according to the use of the car (0km for private use,\
+            \ 24km for private and commute), and does not need to be passed."
+          enum:
+          - None
+          - PerKm
+          - PerMonth
+          - PercentageOfBenefit
+          type: string
+        employeeContributionAmount:
+          description: Payment by the employee for the company car. Number with two
+            decimals expected.
+          type: number
+        companyCarUsage:
+          description: Is the car exclusively for private use or also used for the
+            commute? The car cannot be exclusively private if the payment type is
+            per kilometer.
+          enum:
+          - Private
+          - PrivateAndCommute
+          type: string
+    Hire:
+      description: New contract to be registered
+      required:
+      - employee
+      - employment
+      type: object
+      properties:
+        employment:
+          $ref: '#/components/schemas/Employment'
+          description: Details about employment
+        employee:
+          $ref: '#/components/schemas/Person'
+          description: Details about the employee
+    WorkingHours:
+      description: Times at which work starts and ends on specific dates
+      type: object
+      properties:
+        startingTime:
+          format: date-time
+          description: Time work starts at a specific date
+          type: string
+        endTime:
+          format: date-time
+          description: Time work ends at a specific date
+          type: string
+        breakDuration:
+          description: Duration of the break in minutes
+          type: integer
+    Beneficiary:
+      description: Basic information for a beneficiary
+      required:
+      - name
+      type: object
+      properties:
+        titleCode:
+          description: title with which a person is addressed
+          type: string
+        name:
+          description: Full name of the beneficiary
+          type: string
+    WorkSchedule:
+      description: 'Details about the work schedule for the new contract. For one
+        day contracts only the day worked has to be provided in the workScheduleWeeks.
+        Securex will generate the other days and specifics of the work schedule. '
+      required: []
+      type: object
+      properties:
+        averageWorkingHoursPerWeek:
+          description: Required only if the work schedule is variable. 2 decimals
+          type: number
+        variableWorkSchedule:
+          description: "Whether the work schedule is variable or not. Required, except\
+            \ for one day contracts."
+          type: boolean
+        workScheduleWeeks:
+          description: "The working weeks planned in the schedule. Minimum 1 (unless\
+            \ schedule is variable), maximum 13. For 1-day contracts, at most 1 day\
+            \ for 1 week is expected."
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkScheduleWeek'
+        workingDays:
+          description: Number of working days per week for variable workschedules.
+            Only required if the work schedule is variable. 2 decimals
+          type: number
+        employmentRegime:
+          description: "The employment regime of the employee, such as full time or\
+            \ part time. Required, except for one day contracts."
+          enum:
+          - Fulltime
+          - Parttime
+          - ParttimeIGU
+          type: string
+        startingWeek:
+          description: "The week of the work schedule in which the employee will start.\
+            \ Accepted values are 1 to 13, depending on the number of weeks in the\
+            \ work schedule."
+          type: integer
+        hoursSocialMaribel:
+          description: Hours subsidised via Sociale Maribel.
+          type: number
+      example:
+        averageWorkingHoursPerWeek: 61.34
+        variableWorkSchedule: true
+        workScheduleWeeks:
+        - days:
+          - day: 21
+            prestationBlocks:
+            - theoreticalCode: some text
+              numberOfHours: 11.34
+              actualCode: some text
+              prestationNumber: 11
+            - theoreticalCode: some text
+              numberOfHours: 20.99
+              actualCode: some text
+              prestationNumber: 10
+          - day: 54
+            prestationBlocks:
+            - theoreticalCode: some text
+              numberOfHours: 21.34
+              actualCode: some text
+              prestationNumber: 2
+            - theoreticalCode: some text
+              numberOfHours: 47.26
+              actualCode: some text
+              prestationNumber: 72
+          weekNumber: 95
+        - days:
+          - day: 5
+            prestationBlocks:
+            - theoreticalCode: some text
+              numberOfHours: 6.87
+              actualCode: some text
+              prestationNumber: 21
+            - theoreticalCode: some text
+              numberOfHours: 69.36
+              actualCode: some text
+              prestationNumber: 85
+          - day: 96
+            prestationBlocks:
+            - theoreticalCode: some text
+              numberOfHours: 41.56
+              actualCode: some text
+              prestationNumber: 10
+            - theoreticalCode: some text
+              numberOfHours: 48.28
+              actualCode: some text
+              prestationNumber: 68
+          weekNumber: 7
+        workingDays: 19.05
+        employmentRegime: ParttimeIGU
+        startingWeek: 82
+        hoursSocialMaribel: 56.78
+    WorkScheduleDay:
+      description: Day in a workschedule roster
+      required:
+      - prestationBlocks
+      - day
+      type: object
+      properties:
+        day:
+          description: "day number of the week , 1=monday"
+          type: integer
+        prestationBlocks:
+          description: "In the workschedule, a day can consist of 2 prestationblocks"
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkSchedulePrestationBlock'
+      example:
+        day: 15
+        prestationBlocks:
+        - theoreticalCode: some text
+          numberOfHours: 95.67
+          actualCode: some text
+          prestationNumber: 52
+        - theoreticalCode: some text
+          numberOfHours: 58.93
+          actualCode: some text
+          prestationNumber: 78
+    WorkScheduleWeek:
+      description: week roster
+      required:
+      - days
+      - weekNumber
+      type: object
+      properties:
+        days:
+          description: definitions of the days in the week of the workschedule
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkScheduleDay'
+        weekNumber:
+          description: "Order of the week in the workschedule, accepted values are\
+            \ 1 - 13."
+          type: integer
+      example:
+        days:
+        - day: 31
+          prestationBlocks:
+          - theoreticalCode: some text
+            numberOfHours: 64.51
+            actualCode: some text
+            prestationNumber: 79
+          - theoreticalCode: some text
+            numberOfHours: 16.77
+            actualCode: some text
+            prestationNumber: 32
+        - day: 91
+          prestationBlocks:
+          - theoreticalCode: some text
+            numberOfHours: 23.57
+            actualCode: some text
+            prestationNumber: 51
+          - theoreticalCode: some text
+            numberOfHours: 65.23
+            actualCode: some text
+            prestationNumber: 14
+        weekNumber: 53
+    Address:
+      description: Address update
+      required:
+      - city
+      - countryCode
+      - houseNumber
+      - postalCode
+      - street
+      type: object
+      properties:
+        box:
+          description: Box number. Maximum length of 5 characters.
+          type: string
+        city:
+          description: City label
+          type: string
+        street:
+          description: Street name.
+          type: string
+        houseNumber:
+          description: Building number + Building extension. Maximum length of 5 characters.
+          type: string
+        postalCode:
+          description: Postal code
+          type: string
+        countryCode:
+          description: Country code ISO 3166-2
+          type: string
+    ProfessionalDetails:
+      description: "Professional details of the employee such as experience, qualification,\
+        \ etc."
+      type: object
+      properties:
+        functionCode:
+          description: "Function code identifies the  firm defined function of the\
+            \ employee. All functions applicable for a firm can be retrieved through\
+            \ /firms/{firmNumber}/functions. 4 characters expected. If a function\
+            \ is passed, no nssoFunction should be passed and vice versa. "
+          type: string
+        nssoFunctionCode:
+          description: "A nssoFunctionCode is a function defined by the national social\
+            \ security office. It is applicable only for certain joint committees\
+            \ (145 and 302). If a nssoFunction is passed, no function should be passed\
+            \ and vice versa. "
+          type: string
+        relevantExperienceSince:
+          format: date
+          description: "This date equals the start of the career of the employee,\
+            \ unless there are conditions to be taken into account such as (compulsory)\
+            \ military service, specific functions (e.g. \"chef de partie\" always\
+            \ starts with at least 8 years of experience). Required only if this contract\
+            \ is linked to a joint committee working with expert levels."
+          type: string
+        professionalQualificationCode:
+          description: |
+            Professional qualification code identifies the professional qualification. 3 or 4 characters expected.
+
+            Some joint committees do not use professional qualifications. It is not required to pass the professional qualification for an employee employed in one of the following Securex joint committees:
+            * 103000
+            * 111020
+            * 123000
+            * 140000
+            * 199124
+            * 199130
+            * 299200
+            * 299308
+            * 310010
+            * 315030
+            * 319224
+            * 324030
+            * 327301
+            * 329210
+            * 331213
+            * 331997
+          type: string
+        riskClassCode:
+          description: "The risk class code identifies the risk class of the employee.\
+            \ This information might be necessary for insurance purposes. If a risk\
+            \ class is filled in for a certain contract, passing a risk class is mandatory\
+            \ when updating professional details. 3 characters expected."
+          type: string
+        ificQualificationCode:
+          description: "Applicable for joint committee that follow the classification\
+            \ by IFIC only, needed for the calculation of new payscales in healthcare."
+          type: string
+      example:
+        functionCode: some text
+        nssoFunctionCode: some text
+        relevantExperienceSince: 2018-01-17
+        professionalQualificationCode: some text
+        riskClassCode: some text
+        ificQualificationCode: some text
+    ConditionalEmploymentDetails:
+      description: Employment details needed for Dimona
+      type: object
+      properties:
+        plannedHours:
+          description: Hours of work planned for the given period
+          type: integer
+        workingHours:
+          description: "Listing of working hours on specific dates, needed for extras\
+            \ and flexis"
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkingHours'
+        c32ACardNbrCurrentMonth:
+          description: "Only needed for the construction sector, max. 12 characters"
+          type: string
+        c32ACardNbrNextMonth:
+          description: "Only needed for the construction sector, max. 12 characters"
+          type: string
+        withinContingent:
+          description: "Indicates whether the contract is within contingent, only\
+            \ applies to extras in joint committee 302. Default is true."
+          type: boolean
+    WageProfile:
+      description: 'Set of SalaryData assigned to a contract '
+      required:
+      - wageComponents
+      type: object
+      properties:
+        wageComponents:
+          description: List of wagecomponents and their attributes
+          type: array
+          items:
+            $ref: '#/components/schemas/WageComponent'
+      example:
+        wageComponents:
+        - wageCode: some text
+          unitType: hourly
+          amount: 65.2
+          payscaleCode: checkPayscale
+          wageCodeDescription: some text
+        - wageCode: some text
+          unitType: hourly
+          amount: 43.33
+          payscaleCode: checkPayscale
+          wageCodeDescription: some text
+    TaxData:
+      description: Fiscal data on the employee
+      required:
+      - numberOfDependentChildren
+      - maritalStatusCode
+      type: object
+      properties:
+        numberOfDependentChildren:
+          description: number of dependent children
+          type: integer
+        numberOfDependentChildrenDisabled:
+          description: number of dependent disabled children
+          type: integer
+        numberOfDependentOthers:
+          description: number of other dependent persons
+          type: integer
+        numberOfDependentOthersDisabled:
+          description: number of other disabled dependent persons
+          type: integer
+        numberOfDependentsOlderThan65:
+          description: number of dependents older than 65
+          type: integer
+        numberOfDependentsOlderThan65Disabled:
+          description: number of disabled dependents older than 65
+          type: integer
+        partnerDependent:
+          description: Is the partner dependent?
+          type: boolean
+        maritalStatusCode:
+          description: marital status of the employee
+          type: string
+        partnerDependentDisabled:
+          description: Is the dependent partner disabled? Cannot be combined with
+            partnerDependent = true.
+          type: boolean
+        numberOfDependentsOlderThan65NeedingCare:
+          description: number of dependents older than 65 in need of care
+          type: integer
+    Person:
+      description: All employee data needed for a new hire
+      required: []
+      type: object
+      properties:
+        nationalRegisterNumber:
+          description: |
+            The unique National Registration Number of a person. Optional if nationality is not Belgian, but country of birth is then required.
+
+            Always required for:
+            - employees with Belgian nationality
+            - contracts with dimona type FLX and EXT
+          type: string
+        titleCode:
+          description: title with which a person is addressed
+          type: string
+        firstName:
+          description: First name of a person
+          type: string
+        lastName:
+          description: Last name of a person
+          type: string
+        gender:
+          description: "M for male, F for female"
+          enum:
+          - M
+          - F
+          type: string
+        birthDate:
+          format: date
+          description: Date of birth
+          type: string
+        birthPlace:
+          description: Place of birth
+          type: string
+        birthCountryCode:
+          description: |
+            Country of birth. Required if no nationalRegisterNumber can be provided.
+        employeeKey:
+          description: "Identifier of the employee, if the contract is for a person\
+            \ already known to Securex. Only required if no person information, address,\
+            \ and tax data is passed."
+          type: string
+        taxData:
+          $ref: '#/components/schemas/TaxData'
+          description: Required if no employee key is passed.
+        address:
+          $ref: '#/components/schemas/Address'
+          description: Required if no employee key is passed.
+        contactInformation:
+          $ref: '#/components/schemas/Contact'
+          description: ""
+        bankAccountInformation:
+          $ref: '#/components/schemas/BankAccount'
+          description: ""
+    Contact:
+      description: Basic information for a specific person for a specific contract
+      required: []
+      type: object
+      properties:
+        telephoneNumber1:
+          description: primary telephone number
+          type: string
+        emailAddress2:
+          description: secondary e-mail address
+          type: string
+        emailAddress1:
+          description: Primary e-mail address
+          type: string
+        telephoneNumber2:
+          description: secondary telephone number
+          type: string
+    Contract:
+      description: All employment data needed to create a new contract
+      required:
+      - startDate
+      - employeeType
+      - contractType
+      - copyDocLanguage
+      - departmentNumber
+      - dimonaType
+      - employeeGroup
+      - jointCommittee
+      type: object
+      properties:
+        endDate:
+          format: date
+          description: "Last day of the contract. This date will always be empty for\
+            \ contracts of contractType 'unlimited'. For contracts with a fixed duration,\
+            \ it will contain the enddate registered in the contract. "
+          type: string
+        startDate:
+          format: date
+          description: First day of the contract
+          type: string
+        contractType:
+          description: "Type of contract : limited duration, unlimited..."
+          enum:
+          - notApplicable
+          - fixedTerm
+          - unlimited
+          - specificTask
+          - replacement
+          - interim
+          - temporaryLabour
+          - availability
+          - unknown
+          type: string
+        copyDocLanguage:
+          description: An employee can ask for a copy of his payslip in a different
+            language then the official language
+          enum:
+          - nl
+          - fr
+          - de
+          - en
+          - none
+          type: string
+        departmentNumber:
+          description: Department number
+          type: string
+        dimonaType:
+          description: "Dimona type (OTH, STU, ...). Not required if joint committee\
+            \ is 999."
+          enum:
+          - EXT
+          - FLX
+          - STU
+          - OTH
+          - A17
+          - BCW
+          - RTA
+          - O17
+          - S17
+          type: string
+        jointCommittee:
+          description: Official joint committee in which the employee will be employed
+          type: string
+        workplaceAddressNumber:
+          description: FAD-number
+          type: string
+        employeeType:
+          description: "Type of employee: blue collar or white collar"
+          enum:
+          - BLUE_COLLAR
+          - WHITE_COLLAR
+          type: string
+        employeeGroup:
+          description: "Is this employee a director, apprentice, or other?"
+          enum:
+          - Director
+          - Apprentice
+          - Other
+          - ManagementStaff
+          type: string
+        specialStatus:
+          description: "Remarks on whether the employee might be eligible for a special\
+            \ status, e.g. if the employee has disabilities, is a retiree, etc."
+          type: string
+        firmSeniorityDate:
+          format: date
+          description: "The seniority date of the employee in the firm. Optional,\
+            \ default value equals startDate."
+          type: string
+        sectorSeniorityDate:
+          format: date
+          description: "The seniority of the employee in the sector. Optional, default\
+            \ value equals firmSeniorityDate (or startDate if firmSeniorityDate is\
+            \ blank as well)."
+          type: string
+    Employment:
+      description: All employment data needed for a new hire
+      required:
+      - contract
+      - wageProfile
+      - workSchedule
+      - professionalDetails
+      - commute
+      type: object
+      properties:
+        professionalDetails:
+          $ref: '#/components/schemas/ProfessionalDetails'
+          description: "Professional details such as relevant experience, qualifications,\
+            \ function, etc."
+        conditionalEmploymentDetails:
+          $ref: '#/components/schemas/ConditionalEmploymentDetails'
+          description: 'Conditional employment details '
+        commute:
+          description: Details about the commute of the employee
+          type: array
+          items:
+            $ref: '#/components/schemas/MeansOfTransport'
+        costCenters:
+          description: Details about the cost centers for the new hire
+          type: array
+          items:
+            $ref: '#/components/schemas/CostCenter'
+        contract:
+          $ref: '#/components/schemas/Contract'
+          description: Contract specific data for the new hire
+        workSchedule:
+          $ref: '#/components/schemas/WorkSchedule'
+          description: 'Details about the work schedule for the new contract. For
+            one day contracts only the day worked has to be provided in the workScheduleWeeks.
+            Securex will generate the other days and specifics of the work schedule. '
+        wageProfile:
+          $ref: '#/components/schemas/WageProfile'
+          description: Wage profile information
+  responses:
+    Errors:
+      content:
+        application/json:
+          schema:
+            type: array
+            items:
+              $ref: '#/components/schemas/Error'
+      description: 'list of errors returned '
+  securitySchemes:
+    OAUTH2:
+      flows: {}
+      type: oauth2
+security:
+- OAUTH2: []
+tags:
+- name: hire
+  description: ""
